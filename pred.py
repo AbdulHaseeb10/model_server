@@ -101,9 +101,12 @@
 
 import statistics
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import joblib
 import pandas as pd
 app = Flask(__name__)
+CORS(app)
+
 
 def getMostProbableActivity(predictions):
     mostProbableActivity = statistics.mode(predictions)
@@ -135,7 +138,6 @@ def hello_world():
     return 'Hello, World!'
 
 @app.route('/predict', methods=['POST'])
-@cross_origin()
 def predict():
     try:
         # Extract input data from request
