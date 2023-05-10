@@ -135,6 +135,7 @@ def hello_world():
     return 'Hello, World!'
 
 @app.route('/predict', methods=['POST'])
+@cross_origin()
 def predict():
     try:
         # Extract input data from request
