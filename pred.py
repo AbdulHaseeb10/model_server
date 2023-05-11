@@ -103,10 +103,12 @@ import statistics
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import LabelEncoder
+import numpy as np
 import pandas as pd
 app = Flask(__name__)
 CORS(app)
-
 
 def getMostProbableActivity(predictions):
     mostProbableActivity = statistics.mode(predictions)
@@ -119,6 +121,7 @@ def getMostProbableActivity(predictions):
     else:
         mostProbableActivity = "Walking"
     return mostProbableActivity
+
 
 def getActivityObj(predictions):
     dict_obj = {"jogging": 0.0, "sitting": 0.0, "standing": 0.0, "walking": 0.0}
@@ -145,19 +148,29 @@ def predict():
         # Create a DataFrame from the input data
         input_df = pd.DataFrame.from_dict(input_data)
         
+        input_array = input_df.values
         # Load the KNN model from a joblib file
         knn_saved = joblib.load('knn_har_model.joblib')
         decision_model = joblib.load('decision_tree_model.joblib')
+        lstm_model = load_model("lstm_model.h5")
+        label_encoder = LabelEncoder()
+        label_encoder.fit(["jogging", "sitting", "standing", "walking"])
+        reshaped_input = input_array.reshape((input_array.shape[0],1, input_array.shape[1]))
 
         # Make predictions using the models
         predictions = knn_saved.predict(input_df)
         decision_model_predictions = decision_model.predict(input_df)
-
+        lstm_predictions = lstm_model.predict(reshaped_input)
+        print("lstm predictions",lstm_predictions)
         dict_obj_knn = getActivityObj(predictions)
         mostProbableActivityKnn = getMostProbableActivity(predictions)
 
         dict_obj_decision_tree = getActivityObj(decision_model_predictions)
         mostProbableActivityDecisionTree = getMostProbableActivity(decision_model_predictions)
+
+        predicted_labels = np.argmax(lstm_predictions, axis=1)
+        dict_obj_lstm = getActivityObj(predicted_labels)
+        mostProbableActivityLstm = getMostProbableActivity(predicted_labels)
 
         # Convert predictions to a list and return as a JSON response
         response = {
@@ -168,6 +181,11 @@ def predict():
             'decisionTree': {
                 'mostProbableActivity': mostProbableActivityDecisionTree,
                 'activities': {k: int(v) for k, v in dict_obj_decision_tree.items()}
+            },
+            'lstm':{
+                'mostProbableActivity':mostProbableActivityLstm,
+                'activities':{k: int(v) for k, v in dict_obj_lstm.items()}
+
             }
         }
         return jsonify(response)
